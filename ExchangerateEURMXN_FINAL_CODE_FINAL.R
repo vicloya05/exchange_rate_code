@@ -163,7 +163,7 @@ arima_test_predicted_error <- cbind(test_eur,arima_predicted_prices,forecast_err
 
 #Residual analysis with Ljung Box test. Our models passed the test so they are suitable for forecasting.
 checkresiduals(forecast_test_eur) #ARIMA (1,1,1) drift
-checkresiduals(forecast_arima_111_train) #ARIMA(1,1,1)
+checkresiduals(forecast_arima_111) #ARIMA(1,1,1)
 
 
 #make DAYS AHEAD forecast with the preferred ARIMA(1,1,1) with drift. "_da means" days ahead
@@ -255,11 +255,10 @@ rmse_knn <- sqrt(mean((test_eur_numeric - knn_predictions_numeric)^2))
 # Calculate MAPE
 mape_knn <- mean(abs((test_eur_numeric - knn_predictions_numeric) / test_eur_numeric)) * 100
 print(knn_predictions)
+cat("The KNN Test MAPE is",mape_knn) 
 
-cat("The KNN Test MAPE is",mape_knn) #Clearly, after making the predictions on the inverted differenced series "umgekehrte Differenzbildung"
-#, the MAPE takes a stable value.
 
-#Cross Validation process to find the best k by getting the smallest RMSE
+#Grid search process to find the best k by getting the smallest RMSE
 k_values <- 1:100 #search parameter
 
 # create a vector that will store all rmse of all k values from the model
@@ -313,31 +312,38 @@ rmse_knn <- best_rmse
 #create a plot of k values in the x axis and rmse in the y axis.
 plot(k_values,rmse_values, type= "o",col="blue", pch=3, xlab= 'k', ylab= 'RMSE', main='RMSE of each k')
 
-#Now perform "days ahead forecast" with the optimal k=21 gotten from CrossValidation. "_da" means day ahead.
+#Now perform "days ahead forecast" with the optimal k=21. "_da" means day ahead.
 #I basically repeat the whole code above but with the only difference that the variables are for "day ahead"
 #purposes. 
 lag_1_da <- lag(exchange_rate_eur_diff, 1)
 combined_data_da <- cbind(exchange_rate_eur_diff, lag_1_da)
 #use all observations as training set
-train_X_da <- combined_data_da$EURMXN.X.Adjusted.1
-#eliminate the NA from the first observation in the train.X data (which is the lag from the very first value that should be 0)
-train_X_da[is.na(train_X_da)] <- 0
-train_Y_da <- exchange_rate_eur_diff # reponse of each observation in the training set
+train_X_da <- combined_data_da$EURMXN.X.Adjusted.1  #This is the column of the predictors (lagged prices)
+train_X_da[is.na(train_X_da)] <- 0 #eliminate the NA from the first observation in the train.X data (which is the lag from the very first value that should be 0)
+train_Y_da <- exchange_rate_eur_diff # Targets of lagged prices
+
+
+######NOTE: To predict tomorrows test response Y, we need to use as test X the predictor of tomorrow. We know, that the predictor tomorrow is our price today.
+#train_Y_da contains the responses of the whole exchange rate data set and train_X_da the lags of it. 
+#The predictor for tomorrow will be the response yesterday, meaning, that we will always use as test denoted as in "y", the last response in the variable train_Y_da.
+#Intuitively, the predictor is the last price of the set and the training set should be the whole data set, so that knn looks at the resemblance between the price at hand
+#with all the other prices in the exchange rate.
 
 # Predict 1 day ahead. Train the KNN model using the extended dataset
-#The test_X will be then the lag of the last observed price in the training set, because we are using past prices as predictors. So, for 1 day ahead
-#forecast, train_X_da are the differenced lagged price of the whole training set and train_Y_da the whole differenced price of the training set.
-#Test_X_da is the last value on train_Y_da. 
-y_t= tail(train_Y_da,1) #the test_X_da is the predictor of test_Y_da. That means, that is the price of yesterday, that will predict todays price
-y_t1 <- knn.reg(train_X_da, test=y_t, y = train_Y_da, k = 21)$pred  #predict the price tomorrow by using as test only the price of yesterday, that is in "y".
-y_t1 <- as.numeric(y_t1) #make it numeric so that we can add it to the vector of training sets_X, which will be used to now forecast y_t2
+y_t= tail(train_Y_da,1) #We will use as predictor the last differenced price of our data set, that is 0.5534
+y_t1 <- knn.reg(train_X_da, test=y_t, y = train_Y_da, k = 21)$pred  #predict one day ahead by using as test the last differenced price of our data 
+y_t1 <- as.numeric(y_t1) #make it numeric so that we can add it to our data set
 
+
+train_X_da <- as.numeric(train_X_da)
 #Predict 2 days ahead
-train_X_da <- as.numeric(train_X_da)#make it numeric to add y_t1
-train_X_da2 <- c(train_X_da,y_t) #make the new vector with the predicted value y_t1
+train_X_da2 <- c(train_X_da,y_t) #y_t will be a lagged value of our prediction y_t+1. That is why we add y_t to the lagged prices column. 
+#The predicted differenced price y_t1 will now be the last response observation of our set and therefore the predictor for tomorrow.
 train_Y_da <- as.numeric(train_Y_da)
-train_Y_da2 <- c(train_Y_da,y_t1)
-y_t2 <- knn.reg(train_X_da2, test=y_t1, y=train_Y_da2, k=21)$pred
+train_Y_da2 <- c(train_Y_da,y_t1) #we create a new colum of response to add our last predicted y_t1
+y_t2 <- knn.reg(train_X_da2, test=y_t1, y=train_Y_da2, k=21)$pred #to predict 2 days ahead, we use the whole data set and the predicted price y_t1=0.4727 as test set.
+
+###REPEAT THE WHOLE PROCESS
 #Predict 3 days ahead
 train_X_da3 <- c(train_X_da2,y_t1)
 train_Y_da3 <- c(train_Y_da2,y_t2)
@@ -375,6 +381,7 @@ y_t9 <- knn.reg(train_X_da9, test=y_t8, y=train_Y_da9,k=21)$pred
 train_X_da10 <- c(train_X_da9,y_t8)
 train_Y_da10 <- c(train_Y_da9,y_t9)
 y_t10 <- knn.reg(train_X_da10, test=y_t9, y=train_Y_da10,k=21)$pred
+
 
 knn_da <- ts(c(y_t1,y_t2,y_t3,y_t4,y_t5,y_t6,y_t7,y_t8,y_t9,y_t10)) #knn_da means knn days ahead (prediction) of differenced prices
 print(knn_da)
