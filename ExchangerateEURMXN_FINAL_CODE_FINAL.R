@@ -190,8 +190,7 @@ autoplot(exchange_rate_eur_diff, main="First Difference Order EUR/MXN") + theme_
 #I therefore created another column with the first lag of the price
 lag_1 <- lag(exchange_rate_eur_diff, 1)
 combined_data <- cbind(exchange_rate_eur_diff, lag_1)
-#split training data (train_X) 1-640 and testing data (test_X) from 641-800. The training data consist on lags
-#and is going to be tested on (today's prices).
+#split training data (train_X) 1-640 and testing data (test_X) from 641-800. 
 train_X <- head((combined_data$EURMXN.X.Adjusted.1), length((combined_data$EURMXN.X.Adjusted.1))-n) #Train lags from differenced prices
 #eliminate the NA from the first observation in the train.X data (which is the lag from the first value, being of course 0)
 train_X[is.na(train_X)] <- 0
