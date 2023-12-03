@@ -16,19 +16,16 @@ library(tsibble)
 library(gridExtra)
 library(lmtest)
 
-#get the EUR/MXN exchange rate dataset from yahoo finance
+#get the EUR/MXN exchange rate dataset from yahoo finance. 
 exchange_rate_eur <- getSymbols("EURMXN=X", from = "2020-09-01", to = "2023-08-31", src = "yahoo",
                             auto.assign = F)[,6]
+
 length(exchange_rate_eur)
 
-#For some reason the getSymbols command from the quantmod package sometimes shifts the dates up. The imported prices from
-#2020-09-01 to 2023-08-31 are indeed correct. However, the dates are shifted 1 day up. This represents no problem as I always represent the 
-# data as days and not dates
 autoplot(exchange_rate_eur, main = 'Daily EUR/MXN', ylab ='Price') + theme_bw()
 
 #Compute the test for stationarity.
 adf.test(exchange_rate_eur) #It didn't pass the test.
-
 
 #Show correlation between prices
 acf(exchange_rate_eur, main = 'ACF of EUR/MXN') #The time series is not stationary because the p-Value 
