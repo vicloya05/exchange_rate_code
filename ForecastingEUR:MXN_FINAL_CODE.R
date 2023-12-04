@@ -19,7 +19,7 @@ library(lmtest)
 #get the EUR/MXN exchange rate dataset from yahoo finance.
 exchange_rate_eur <- getSymbols("EURMXN=X", from = "2020-09-01", to = "2023-08-31", src = "yahoo",
                             auto.assign = F)[,6] 
-#IMPORTANT NOTE: The command actually imports prices from 2020.31.08 to 2023.08.30
+#IMPORTANT NOTE: The command actually imports prices from 2020.08.31 to 2023.08.30
 
 length(exchange_rate_eur)
 
